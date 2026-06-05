@@ -2,12 +2,16 @@ from __future__ import annotations
 
 import os
 import sys
+from typing import Annotated
 
+import typer
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
 
 
 DEFAULT_REPOSITORY = "oss2026hnu/reposcore-py"
+
+app = typer.Typer(help="reposcore-py CLI")
 
 
 def split_repository(repository: str) -> tuple[str, str]:
@@ -62,19 +66,28 @@ def fetch_repository_counts(repository: str) -> dict[str, object]:
     return result["repository"]
 
 
-def main() -> None:
-    repository = sys.argv[1] if len(sys.argv) > 1 else DEFAULT_REPOSITORY
-
+@app.command()
+def main(
+    repository: Annotated[
+        str,
+        typer.Argument(help="조회할 GitHub 저장소 경로입니다. 예: owner/repo"),
+    ] = DEFAULT_REPOSITORY,
+) -> None:
+    """Fetch basic repository counts from GitHub GraphQL API."""
     try:
         data = fetch_repository_counts(repository)
     except Exception as error:
         print(f"오류: {error}", file=sys.stderr)
-        raise SystemExit(1) from error
+        raise typer.Exit(1) from error
 
-    print(f"Repository: {data['nameWithOwner']}")
-    print(f"Issues: {data['issues']['totalCount']}")
-    print(f"Pull Requests: {data['pullRequests']['totalCount']}")
+    typer.echo(f"Repository: {data['nameWithOwner']}")
+    typer.echo(f"Issues: {data['issues']['totalCount']}")
+    typer.echo(f"Pull Requests: {data['pullRequests']['totalCount']}")
+
+
+def cli() -> None:
+    app()
 
 
 if __name__ == "__main__":
-    main()
+    cli()
