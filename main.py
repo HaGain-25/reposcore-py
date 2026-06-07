@@ -7,14 +7,9 @@ from typing import Annotated, Optional
 import typer
 from gql import Client, gql
 from gql.transport.requests import RequestsHTTPTransport
-from pydantic import BaseModel
 
 
 DEFAULT_REPOSITORY = "oss2026hnu/reposcore-py"
-
-class User(BaseModel):
-    name: str
-    score: int
 
 app = typer.Typer(help="reposcore-py CLI")
 
@@ -87,8 +82,6 @@ def main(
     ] = None,
 ) -> None:
     """Fetch basic repository counts from GitHub GraphQL API."""
-    user = User(name="test", score=100)
-    print(user)
 
     if len(repos) == 0:
         typer.echo("오류: 저장소를 하나 이상 입력해주세요.", err=True)
