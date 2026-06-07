@@ -13,6 +13,7 @@
 - [RequestsHTTPTransport 설정](#requestshttptransport-설정)
 - [저장소 기본 정보 조회 예시](#저장소-기본-정보-조회-예시)
 - [Issue / PR 개수 조회 예시](#issue--pr-개수-조회-예시)
+- [GraphQL 응답 데이터 처리에 Pydantic 활용하기](#graphql-응답-데이터-처리에-pydantic-활용하기)
 - [GraphQL 쿼리 작성 시 주의사항](#graphql-쿼리-작성-시-주의사항)
 
 ---
@@ -216,6 +217,46 @@ print(f"Merged PR:  {repo['mergedPRs']['totalCount']}")
 
 ---
 
+## GraphQL 응답 데이터 처리에 Pydantic 활용하기
+
+### dict 구조 그대로 사용할 때의 한계
+GitHub GraphQL API의 응답은 기본적으로 중첩된 `dict` 형태로 다루게 됩니다. 하지만 응답 구조가 복잡해질수록 다음과 같은 문제가 발생할 수 있습니다.
+- **오타 및 타입 혼동:** 필드 이름을 잘못 입력하거나(`issuse` 등), 데이터 타입을 잘못 파악해 런타임 에러가 발생하기 쉽습니다. IDE의 자동 완성 지원도 받을 수 없습니다.
+- **가독성 저하:** `result["repository"]["issues"]["totalCount"]` 처럼 딕셔너리 키 체이닝이 길어져 코드 유지보수가 어려워집니다.
+
+### Pydantic 모델을 통한 구조화 및 검증
+Pydantic을 활용하면 데이터 구조를 명확한 Python 객체로 정의하여 타입을 보장받고 데이터 검증을 수행할 수 있습니다.
+
+#### 설치
+```bash
+pip install pydantic
+```
+
+### 예시
+```python
+from pydantic import BaseModel
+
+class IssueCount(BaseModel):
+    totalCount: int
+
+class PullRequestCount(BaseModel):
+    totalCount: int
+
+class RepositoryCounts(BaseModel):
+    nameWithOwner: str
+    issues: IssueCount
+    pullRequests: PullRequestCount
+
+repository_data = result["repository"]
+repository = RepositoryCounts.model_validate(repository_data)
+
+print(repository.nameWithOwner)
+print(repository.issues.totalCount)
+print(repository.pullRequests.totalCount)
+```
+
+---
+
 ## GraphQL 쿼리 작성 시 주의사항
 
 ### 페이지네이션
@@ -264,3 +305,4 @@ query {
 - **`fetch_schema_from_transport=True`** 옵션은 편리하지만 매 실행 시 스키마를 가져오므로, 운영 환경에서는 `False`로 설정하는 것을 고려하세요.
 - GitHub GraphQL API의 최대 복잡도(complexity)를 초과하면 요청이 거부됩니다. 중첩 쿼리 깊이를 적절히 제한하세요.
 - 응답 필드명에 **alias**를 사용하면 같은 타입을 다른 조건으로 여러 번 조회할 수 있습니다 (예: `closedIssues: issues(states: CLOSED)`).
+- **Pydantic Alias 주의:** GraphQL 쿼리에서 `closedIssues: issues`와 같이 Alias를 적용한 필드가 있다면, Pydantic 모델을 작성할 때도 해당 이름과 매핑되도록 필드명을 일치시켜 주어야 구조화 시 에러가 나지 않습니다.
