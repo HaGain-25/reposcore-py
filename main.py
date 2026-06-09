@@ -4,10 +4,11 @@ import os
 import sys
 from typing import Annotated, Optional
 
-import typer
-from gql import Client, gql
-from gql.transport.requests import RequestsHTTPTransport
 
+import typer
+
+from calc_score import UserContributionCounts
+from gh_service import fetch_contributions
 from output_writer import build_output, write_output
 
 
@@ -23,49 +24,6 @@ def split_repository(repository: str) -> tuple[str, str]:
         raise ValueError("저장소는 owner/repo 형식이어야 합니다.")
 
     return parts[0], parts[1]
-
-
-def fetch_repository_counts(repository: str) -> dict[str, object]:
-    token = os.environ.get("GITHUB_TOKEN")
-
-    if not token:
-        raise RuntimeError("GitHub GraphQL API 호출을 위해 GITHUB_TOKEN 환경 변수가 필요합니다.")
-
-    owner, name = split_repository(repository)
-
-    transport = RequestsHTTPTransport(
-        url="https://api.github.com/graphql",
-        headers={"Authorization": f"Bearer {token}"},
-        verify=True,
-        retries=3,
-    )
-
-    query = gql(
-        """
-        query($owner: String!, $name: String!) {
-          repository(owner: $owner, name: $name) {
-            nameWithOwner
-            issues(first: 1) {
-              totalCount
-            }
-            pullRequests(first: 1) {
-              totalCount
-            }
-          }
-        }
-        """
-    )
-
-    with Client(transport=transport, fetch_schema_from_transport=False) as session:
-        result = session.execute(
-            query,
-            variable_values={
-                "owner": owner,
-                "name": name,
-            },
-        )
-
-    return result["repository"]
 
 
 @app.command()
@@ -89,24 +47,20 @@ def main(
         typer.echo("오류: 저장소를 하나 이상 입력해주세요.", err=True)
         raise typer.Exit(1)
 
-    results: list[dict[str, object]] = []
+    token = os.environ.get("GITHUB_TOKEN")
+    if not token:
+        typer.echo("오류: GITHUB_TOKEN 환경 변수가 필요합니다.", err=True)
+        raise typer.Exit(1)
+
+    all_contributions: list[list[UserContributionCounts]] = []
 
     for repo in repos:
         try:
-            data = fetch_repository_counts(repo)
+            contributions = fetch_contributions(repo, token)
+            all_contributions.append(contributions)
         except Exception as error:
             print(f"오류 ({repo}): {error}", file=sys.stderr)
             raise typer.Exit(1) from error
-
-        results.append(data)
-
-    try:
-        content = build_output(results, format)
-        write_output(content, output, format)
-    except ValueError as error:
-        typer.echo(f"오류: {error}", err=True)
-        raise typer.Exit(1) from error
-
 
 def cli() -> None:
     app()
