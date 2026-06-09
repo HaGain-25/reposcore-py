@@ -24,14 +24,9 @@ class UserContributionCounts(BaseModel):
 
 class UserScore(BaseModel):
     """사용자별 기여 개수와 최종 계산 점수를 함께 담는 점수 계산 결과 모델입니다."""
-    
-    user: str
+
+    contribution: UserContributionCounts
     score: int
-    feature_bug_pr_count: int
-    doc_pr_count: int
-    typo_pr_count: int
-    feature_bug_issue_count: int
-    doc_issue_count: int
 
 
 def calculate_final_score(
@@ -89,13 +84,8 @@ def calculate_user_score(contribution: UserContributionCounts) -> UserScore:
     )
 
     return UserScore(
-        user=contribution.user,
+        contribution=contribution,
         score=score,
-        feature_bug_pr_count=contribution.feature_bug_pr_count,
-        doc_pr_count=contribution.doc_pr_count,
-        typo_pr_count=contribution.typo_pr_count,
-        feature_bug_issue_count=contribution.feature_bug_issue_count,
-        doc_issue_count=contribution.doc_issue_count,
     )
 
 
@@ -104,7 +94,7 @@ def calculate_repository_scores(
 ) -> list[UserScore]:
     scores = [calculate_user_score(contribution) for contribution in contributions]
 
-    return sorted(scores, key=lambda user_score: (-user_score.score, user_score.user))
+    return sorted(scores, key=lambda user_score: (-user_score.score, user_score.contribution.user))
 
 
 def merge_repository_contributions(
