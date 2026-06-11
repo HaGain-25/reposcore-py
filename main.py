@@ -4,6 +4,7 @@ import os
 import sys
 from enum import Enum
 from typing import Annotated
+from pathlib import Path
 
 import typer
 from gql.transport.exceptions import TransportQueryError, TransportServerError
@@ -11,6 +12,7 @@ from gql.transport.exceptions import TransportQueryError, TransportServerError
 from calc_score import calculate_total_scores, UserContributionCounts
 from gh_service import fetch_contributions
 from output_writer import build_output, write_output
+from cache_manager import load_cache, save_cache
 
 DEFAULT_REPOSITORY = "oss2026hnu/reposcore-py"
 
@@ -80,10 +82,26 @@ def main(
 
     for repo in repos:
         try:
-            # GitHub API 호출 전에 항상 owner/repo 형식 검증
-            split_repository(repo)
+            owner, repo_name = split_repository(repo)
 
-            contributions = fetch_contributions(repo, resolved_token)
+            cache_path = None
+            if output:
+                cache_path = Path(output) / f"{owner}_{repo_name}" / "cache.json"
+
+            cached_data = {}
+            if cache_path:
+                cached_data = load_cache(cache_path)
+
+            if cached_data and "contributions" in cached_data:
+                contributions = [UserContributionCounts(**c) for c in cached_data["contributions"]]
+            else:
+                contributions = fetch_contributions(repo, resolved_token)
+                if cache_path:
+                    dumped = [
+                        c.model_dump() if hasattr(c, "model_dump") else vars(c)
+                        for c in contributions
+                    ]
+                    save_cache(cache_path, {"contributions": dumped})
             all_contributions.append(contributions)
 
         except ValueError as error:
