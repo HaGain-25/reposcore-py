@@ -3,7 +3,7 @@ from __future__ import annotations
 import os
 import sys
 from enum import Enum
-from importlib.metadata import version, PackageNotFoundError
+from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Annotated
 
@@ -118,16 +118,26 @@ def _load_or_fetch_contributions(
 def main(
     repos: Annotated[
         list[str],
-        typer.Argument(help="조회할 GitHub 저장소 경로입니다. 예: owner/repo1 owner/repo2"),
+        typer.Argument(
+            help="조회할 GitHub 저장소 경로입니다. 예: owner/repo1 owner/repo2"
+        ),
     ],
     _version: Annotated[
         bool,
-        typer.Option("--version", "-v", help="현재 버전을 출력하고 종료합니다.", is_eager=True, callback=version_callback),
+        typer.Option(
+            "--version",
+            "-v",
+            help="현재 버전을 출력하고 종료합니다.",
+            is_eager=True,
+            callback=version_callback,
+        ),
     ] = False,
     # 기존 str 타입에서 Enum(OutputFormatOption) 기반 타입으로 변경하여 CLI 검증 추가
     format: Annotated[
         OutputFormatOption,
-        typer.Option("--format", "-f", help="출력 파일 형식을 지정합니다. (csv | txt | html)"),
+        typer.Option(
+            "--format", "-f", help="출력 파일 형식을 지정합니다. (csv | txt | html)"
+        ),
     ] = OutputFormatOption.txt,
     output: Annotated[
         str | None,
@@ -142,16 +152,29 @@ def main(
     ] = None,
     token: Annotated[
         str | None,
-        typer.Option("--token", "-t", help="GitHub Personal Access Token. 미제공 시 GITHUB_TOKEN 환경 변수를 사용합니다."),
+        typer.Option(
+            "--token",
+            "-t",
+            help=(
+                "GitHub Personal Access Token. "
+                "미제공 시 GITHUB_TOKEN 환경 변수를 사용합니다."
+            ),
+        ),
     ] = None,
     # 요구사항에 명시된 다중 저장소 집계 여부 선택을 위한 플래그 추가
     aggregate: Annotated[
         bool,
-        typer.Option("--aggregate", help="여러 저장소의 결과를 하나로 합산하여 전체 기여 점수를 출력합니다."),
+        typer.Option(
+            "--aggregate",
+            help="여러 저장소의 결과를 하나로 합산하여 전체 기여 점수를 출력합니다.",
+        ),
     ] = False,
     no_cache: Annotated[
         bool,
-        typer.Option("--no-cache", help="캐시를 사용하지 않고 GitHub API에서 최신 데이터를 다시 조회합니다."),
+        typer.Option(
+            "--no-cache",
+            help="캐시를 사용하지 않고 GitHub API에서 최신 데이터를 다시 조회합니다.",
+        ),
     ] = False,
 ) -> None:
     """Fetch basic repository counts from GitHub GraphQL API."""
@@ -162,7 +185,9 @@ def main(
 
     resolved_token = token or os.environ.get("GITHUB_TOKEN")
     if not resolved_token:
-        typer.echo("오류: GITHUB_TOKEN 환경 변수 또는 --token 옵션이 필요합니다.", err=True)
+        typer.echo(
+            "오류: GITHUB_TOKEN 환경 변수 또는 --token 옵션이 필요합니다.", err=True
+        )
         raise typer.Exit(1)
 
     try:
@@ -225,12 +250,21 @@ def main(
             aggregated_results = []
             for score in total_scores:
                 contrib = score.contribution
-                aggregated_results.append({
-                    "nameWithOwner": contrib.user,
-                    "issues": {"totalCount": contrib.feature_bug_issue_count + contrib.doc_issue_count},
-                    "pullRequests": {"totalCount": contrib.feature_bug_pr_count + contrib.doc_pr_count + contrib.typo_pr_count},
-                    "totalScore": score.score
-                })
+                aggregated_results.append(
+                    {
+                        "nameWithOwner": contrib.user,
+                        "issues": {
+                            "totalCount": contrib.feature_bug_issue_count
+                            + contrib.doc_issue_count
+                        },
+                        "pullRequests": {
+                            "totalCount": contrib.feature_bug_pr_count
+                            + contrib.doc_pr_count
+                            + contrib.typo_pr_count
+                        },
+                        "totalScore": score.score,
+                    }
+                )
             content = build_output(aggregated_results, format_value)
             write_output(content, output, format_value)
         except Exception as error:

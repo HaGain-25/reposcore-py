@@ -3,11 +3,11 @@ from __future__ import annotations
 import pytest
 
 from output_writer import (
-    normalize_output_format,
     build_csv_output,
-    build_txt_output,
     build_html_output,
     build_output,
+    build_txt_output,
+    normalize_output_format,
     write_output,
 )
 

@@ -15,9 +15,13 @@ dependencies = [
     "tabulate>=0.9.0",
 ]
 
+
+
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
+    "pytest-ruff>=0.5",
+    "ruff>=0.8.0",
 ]
 
 [project.scripts]
@@ -30,3 +34,13 @@ only-include = [
   "calc_score.py",
   "gh_service.py",
 ]
+
+[tool.ruff]
+target-version = "py312"
+line-length = 88
+
+[tool.ruff.lint]
+select = ["E", "F", "I"]
+
+[tool.pytest.ini_options]
+addopts = "--ruff --ruff-format"

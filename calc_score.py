@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
-from pydantic import BaseModel
 
+from pydantic import BaseModel
 
 SCORE_PR_FEATURE_BUG = 3
 SCORE_PR_DOC = 2
@@ -52,18 +52,14 @@ def calculate_final_score(
 
     optimized_doc_pr_count = min(doc_pr_count, remaining_pr_slots)
     optimized_typo_pr_count = (
-        valid_pr_count
-        - optimized_feature_bug_pr_count
-        - optimized_doc_pr_count
+        valid_pr_count - optimized_feature_bug_pr_count - optimized_doc_pr_count
     )
 
     optimized_feature_bug_issue_count = min(
         feature_bug_issue_count,
         valid_issue_count,
     )
-    optimized_doc_issue_count = (
-        valid_issue_count - optimized_feature_bug_issue_count
-    )
+    optimized_doc_issue_count = valid_issue_count - optimized_feature_bug_issue_count
 
     return (
         optimized_feature_bug_pr_count * SCORE_PR_FEATURE_BUG
@@ -94,7 +90,9 @@ def calculate_repository_scores(
 ) -> list[UserScore]:
     scores = [calculate_user_score(contribution) for contribution in contributions]
 
-    return sorted(scores, key=lambda user_score: (-user_score.score, user_score.contribution.user))
+    return sorted(
+        scores, key=lambda user_score: (-user_score.score, user_score.contribution.user)
+    )
 
 
 def merge_repository_contributions(
@@ -105,7 +103,9 @@ def merge_repository_contributions(
     for repository in repositories:
         for contribution in repository:
             if contribution.user not in merged:
-                merged[contribution.user] = UserContributionCounts(user=contribution.user)
+                merged[contribution.user] = UserContributionCounts(
+                    user=contribution.user
+                )
 
             current = merged[contribution.user]
             current.feature_bug_pr_count += contribution.feature_bug_pr_count
