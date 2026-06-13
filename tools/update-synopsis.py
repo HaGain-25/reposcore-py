@@ -18,7 +18,6 @@ import subprocess
 import sys
 from pathlib import Path
 
-
 ROOT = Path(__file__).resolve().parent.parent
 README_TEMPLATE = ROOT / "README-template.md"
 README_OUTPUT = ROOT / "README.md"
@@ -77,7 +76,9 @@ def render_readme(synopsis: str) -> str:
     placeholder = "{{ SYNOPSIS }}"
 
     if placeholder not in template:
-        raise RuntimeError(f"README-template.md에 {placeholder} 플레이스홀더가 없습니다.")
+        raise RuntimeError(
+            f"README-template.md에 {placeholder} 플레이스홀더가 없습니다."
+        )
 
     return template.replace(placeholder, synopsis).rstrip() + "\n"
 

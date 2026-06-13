@@ -1,7 +1,8 @@
 from __future__ import annotations
 
-import pytest
 from unittest.mock import patch
+
+import pytest
 from typer.testing import CliRunner
 
 from main import app, split_repository

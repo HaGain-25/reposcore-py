@@ -1,10 +1,10 @@
 from calc_score import (
     UserContributionCounts,
     calculate_final_score,
-    calculate_user_score,
     calculate_repository_scores,
-    merge_repository_contributions,
     calculate_total_scores,
+    calculate_user_score,
+    merge_repository_contributions,
 )
 
 
