@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 from typer.testing import CliRunner
 
-from main import app
 from cache_manager import load_cache, save_cache
 from calc_score import UserContributionCounts
+from main import app
 
 runner = CliRunner()
 

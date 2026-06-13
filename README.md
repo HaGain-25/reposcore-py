@@ -41,35 +41,25 @@ Usage: reposcore [OPTIONS] REPOS...
 
  Fetch basic repository counts from GitHub GraphQL API.
 
-╭─ Arguments ──────────────────────────────────────────────────────────────────╮
-│ *    repos      REPOS...  조회할 GitHub 저장소 경로입니다. 예: owner/repo1   │
-│                           owner/repo2                                        │
-│                           [required]                                         │
-╰──────────────────────────────────────────────────────────────────────────────╯
-╭─ Options ────────────────────────────────────────────────────────────────────╮
-│ --version             -v                      현재 버전을 출력하고           │
-│                                               종료합니다.                    │
-│ --format              -f      [csv|txt|html]  출력 파일 형식을 지정합니다.   │
-│                                               (csv | txt | html)             │
-│                                               [default: txt]                 │
-│ --output              -o      TEXT            결과를 저장할 출력 디렉터리    │
-│                                               경로입니다. 생략하면 파일로    │
-│                                               저장하지 않고 stdout에         │
-│                                               출력합니다. 예: ./result       │
-│ --token               -t      TEXT            GitHub Personal Access Token.  │
-│                                               미제공 시 GITHUB_TOKEN 환경    │
-│                                               변수를 사용합니다.             │
-│ --aggregate                                   여러 저장소의 결과를 하나로    │
-│                                               합산하여 전체 기여 점수를      │
-│                                               출력합니다.                    │
-│ --no-cache                                    캐시를 사용하지 않고 GitHub    │
-│                                               API에서 최신 데이터를 다시     │
-│                                               조회합니다.                    │
-│ --install-completion                          Install completion for the     │
-│                                               current shell.                 │
-│ --show-completion                             Show completion for the        │
-│                                               current shell, to copy it or   │
-│                                               customize the installation.    │
-│ --help                                        Show this message and exit.    │
-╰──────────────────────────────────────────────────────────────────────────────╯
+Arguments
+  *    repos      REPOS...  조회할 GitHub 저장소 경로입니다. 예: owner/repo1 owner/repo2
+                            [required]
+
+Options
+  --version             -v                      현재 버전을 출력하고 종료합니다.
+  --format              -f      [csv|txt|html]  출력 파일 형식을 지정합니다. (csv | txt | html)
+                                                [default: txt]
+  --output              -o      TEXT            결과를 저장할 출력 디렉터리 경로입니다. 생략하면
+                                                파일로 저장하지 않고 stdout에 출력합니다. 예:
+                                                ./result
+  --token               -t      TEXT            GitHub Personal Access Token. 미제공 시
+                                                GITHUB_TOKEN 환경 변수를 사용합니다.
+  --aggregate                                   여러 저장소의 결과를 하나로 합산하여 전체 기여
+                                                점수를 출력합니다.
+  --no-cache                                    캐시를 사용하지 않고 GitHub API에서 최신 데이터를
+                                                다시 조회합니다.
+  --install-completion                          Install completion for the current shell.
+  --show-completion                             Show completion for the current shell, to copy it
+                                                or customize the installation.
+  --help                                        Show this message and exit.
 ```

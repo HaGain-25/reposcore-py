@@ -6,8 +6,8 @@ from pydantic import BaseModel
 
 from calc_score import UserContributionCounts
 
-
 # ── Pydantic 모델 정의 ──────────────────────────────────────────
+
 
 class Author(BaseModel):
     login: str
@@ -20,13 +20,16 @@ class Label(BaseModel):
 class LabelConnection(BaseModel):
     nodes: list[Label]
 
+
 class PageInfo(BaseModel):
     hasNextPage: bool
     endCursor: str | None
 
+
 class Node(BaseModel):
     author: Author | None
     labels: LabelConnection
+
 
 class Connection(BaseModel):
     pageInfo: PageInfo
@@ -51,6 +54,7 @@ class PRResponse(BaseModel):
 
 # ── 클라이언트 생성 ──────────────────────────────────────────────
 
+
 def create_client(token: str) -> Client:
     transport = RequestsHTTPTransport(
         url="https://api.github.com/graphql",
@@ -62,6 +66,7 @@ def create_client(token: str) -> Client:
 
 
 # ── 공통 기여 집계 유틸리티 ─────────────────────────────────────
+
 
 def _split_repository(repository: str) -> tuple[str, str]:
     parts = repository.split("/")
@@ -198,6 +203,7 @@ def _build_pr_alias_query(indexes: list[int]):
 
 # ── 기여 데이터 수집 ──────────────────────────────────────────────
 
+
 def fetch_contributions(repository: str, token: str) -> list[UserContributionCounts]:
     owner, name = _split_repository(repository)
     client = create_client(token)
@@ -329,9 +335,7 @@ def fetch_multiple_contributions(
             )
 
             for index in active_indexes:
-                issues = Connection.model_validate(
-                    result[f"repo{index}"]["issues"]
-                )
+                issues = Connection.model_validate(result[f"repo{index}"]["issues"])
 
                 for node in issues.nodes:
                     _add_issue_contribution(
@@ -345,9 +349,7 @@ def fetch_multiple_contributions(
                     issue_active[index] = False
 
         while any(pr_active):
-            active_indexes = [
-                index for index, active in enumerate(pr_active) if active
-            ]
+            active_indexes = [index for index, active in enumerate(pr_active) if active]
 
             variables = {}
             for index in active_indexes:
@@ -362,9 +364,7 @@ def fetch_multiple_contributions(
             )
 
             for index in active_indexes:
-                prs = Connection.model_validate(
-                    result[f"repo{index}"]["pullRequests"]
-                )
+                prs = Connection.model_validate(result[f"repo{index}"]["pullRequests"])
 
                 for node in prs.nodes:
                     _add_pr_contribution(
@@ -378,6 +378,5 @@ def fetch_multiple_contributions(
                     pr_active[index] = False
 
     return [
-        list(contributions.values())
-        for contributions in contributions_by_repository
+        list(contributions.values()) for contributions in contributions_by_repository
     ]

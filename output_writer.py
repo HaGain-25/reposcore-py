@@ -8,7 +8,6 @@ from typing import Any, Literal
 
 from tabulate import tabulate
 
-
 OutputFormat = Literal["csv", "txt", "html"]
 
 
@@ -35,15 +34,18 @@ def get_pull_request_count(result: dict[str, Any]) -> int:
 
 def build_txt_output(results: list[dict[str, Any]]) -> str:
     has_score = any("totalScore" in result for result in results)
-    
-    headers = ["repo", "issues", "pull_requests"] + (["total_score"] if has_score else [])
+
+    headers = ["repo", "issues", "pull_requests"] + (
+        ["total_score"] if has_score else []
+    )
 
     rows = [
         [
             get_repository_name(result),
             get_issue_count(result),
             get_pull_request_count(result),
-        ] + ([result.get("totalScore", 0)] if has_score else [])
+        ]
+        + ([result.get("totalScore", 0)] if has_score else [])
         for result in results
     ]
 
@@ -52,11 +54,13 @@ def build_txt_output(results: list[dict[str, Any]]) -> str:
 
 def build_csv_output(results: list[dict[str, Any]]) -> str:
     has_score = any("totalScore" in result for result in results)
-    
+
     output = StringIO()
     writer = csv.writer(output)
 
-    headers = ["repo", "issues", "pull_requests"] + (["total_score"] if has_score else [])
+    headers = ["repo", "issues", "pull_requests"] + (
+        ["total_score"] if has_score else []
+    )
     writer.writerow(headers)
 
     for result in results:
@@ -65,7 +69,8 @@ def build_csv_output(results: list[dict[str, Any]]) -> str:
                 get_repository_name(result),
                 get_issue_count(result),
                 get_pull_request_count(result),
-            ] + ([result.get("totalScore", 0)] if has_score else [])
+            ]
+            + ([result.get("totalScore", 0)] if has_score else [])
         )
 
     return output.getvalue().strip()
@@ -74,7 +79,7 @@ def build_csv_output(results: list[dict[str, Any]]) -> str:
 def build_html_output(results: list[dict[str, Any]]) -> str:
     # 1. 데이터셋에 totalScore가 존재하는지 확인
     has_score = any("totalScore" in result for result in results)
-    
+
     # 2. 점수가 있을 때만 HTML th 태그를 동적으로 생성
     th_score = "\n        <th>total_score</th>" if has_score else ""
 
@@ -89,7 +94,7 @@ def build_html_output(results: list[dict[str, Any]]) -> str:
         # 점수가 있을 때만 안전하게 td 태그를 더해줍니다.
         if has_score:
             row += f"<td>{result.get('totalScore', 0)}</td>"
-        
+
         row += "</tr>"
         html_rows.append(row)
 
