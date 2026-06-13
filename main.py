@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import os
 import sys
+from datetime import datetime, timezone
 from enum import Enum
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
@@ -97,8 +98,9 @@ def _load_or_fetch_contributions(
                 token,
             )
 
-        for index, contributions in zip(
+        for index, repo, contributions in zip(
             missing_indexes,
+            missing_repos,
             fetched_contributions,
             strict=True,
         ):
@@ -106,9 +108,21 @@ def _load_or_fetch_contributions(
             cache_path = cache_paths[index]
 
             if cache_path:
+                owner, repo_name = split_repository(repo)
                 save_cache(
                     cache_path,
-                    {"contributions": _dump_contributions(contributions)},
+                    {
+                        "metadata": {
+                            "repository": repo,
+                            "owner": owner,
+                            "name": repo_name,
+                            "schemaVersion": 1,
+                            "generatedAt": datetime.now(timezone.utc)
+                            .isoformat(timespec="seconds")
+                            .replace("+00:00", "Z"),
+                        },
+                        "contributions": _dump_contributions(contributions),
+                    },
                 )
 
     return all_contributions
@@ -249,18 +263,17 @@ def main(
             # output_writer가 100% 호환되도록 중첩 딕셔너리 구조로 직접 매핑 변환
             aggregated_results = []
             for score in total_scores:
-                contrib = score.contribution
+                c = score.contribution
                 aggregated_results.append(
                     {
-                        "nameWithOwner": contrib.user,
+                        "nameWithOwner": c.user,
                         "issues": {
-                            "totalCount": contrib.feature_bug_issue_count
-                            + contrib.doc_issue_count
+                            "totalCount": c.feature_bug_issue_count + c.doc_issue_count
                         },
                         "pullRequests": {
-                            "totalCount": contrib.feature_bug_pr_count
-                            + contrib.doc_pr_count
-                            + contrib.typo_pr_count
+                            "totalCount": c.feature_bug_pr_count
+                            + c.doc_pr_count
+                            + c.typo_pr_count
                         },
                         "totalScore": score.score,
                     }
