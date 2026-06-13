@@ -238,11 +238,11 @@ def main(
             # output_writer가 100% 호환되도록 중첩 딕셔너리 구조로 직접 매핑 변환
             aggregated_results = []
             for score in total_scores:
-                contrib = score.contribution
+                c = score.contribution
                 aggregated_results.append({
-                    "nameWithOwner": contrib.user,
-                    "issues": {"totalCount": contrib.feature_bug_issue_count + contrib.doc_issue_count},
-                    "pullRequests": {"totalCount": contrib.feature_bug_pr_count + contrib.doc_pr_count + contrib.typo_pr_count},
+                    "nameWithOwner": c.user,
+                    "issues": {"totalCount": c.feature_bug_issue_count + c.doc_issue_count},
+                    "pullRequests": {"totalCount": c.feature_bug_pr_count + c.doc_pr_count + c.typo_pr_count},
                     "totalScore": score.score
                 })
             content = build_output(aggregated_results, format_value)
