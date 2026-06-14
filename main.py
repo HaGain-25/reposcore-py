@@ -253,7 +253,8 @@ def main(
                 "미제공 시 GITHUB_TOKEN 환경 변수를 사용합니다."
             ),
         ),
-    ] = None,
+    ] = None,  
+    # 요구사항에 명시된 다중 저장소 집계 여부 선택을 위한 플래그 추가
     aggregate: Annotated[
         bool,
         typer.Option(
