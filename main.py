@@ -406,6 +406,17 @@ def main(
 
                 if len(repos) > 1:
                     print(f"=== Repository: {repo} ===")
+                    print()
+
+                claimed_count = len(claimed_issues)
+                unclaimed_count = len(unclaimed_issues)
+                total_count = claimed_count + unclaimed_count
+
+                print("Claim Summary\n")
+                print(f"Total open issues: {total_count}")
+                print(f"Claimed issues: {claimed_count}")
+                print(f"Unclaimed issues: {unclaimed_count}")
+                print()
 
                 # 요구사항 레이아웃 명세대로 분리 출력
                 print("Claimed Issues\n")
