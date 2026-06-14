@@ -30,7 +30,7 @@ def capture_cli_help() -> str:
         ["reposcore", "--help"],
     ]
 
-    last_error = ""
+    errors: list[str] = []
     env = os.environ.copy()
     env["COLUMNS"] = "100"
 
@@ -49,7 +49,8 @@ def capture_cli_help() -> str:
                 env=env,
             )
         except FileNotFoundError as error:
-            last_error = f"{command[0]} 명령을 찾을 수 없습니다: {error}"
+            command_text = " ".join(str(part) for part in command)
+            errors.append(f"- {command_text}: {error}")
             continue
 
         output = ((proc.stdout or "") + (proc.stderr or "")).strip()
@@ -59,9 +60,11 @@ def capture_cli_help() -> str:
                 output = output.replace("Usage: main.py", "Usage: reposcore", 1)
             return output
 
-        last_error = output or f"{command} returned exit code {proc.returncode}"
+        command_text = " ".join(str(part) for part in command)
+        error_message = output or f"returned exit code {proc.returncode}"
+        errors.append(f"- {command_text}: {error_message}")
 
-    raise RuntimeError("CLI 도움말을 생성하지 못했습니다:\n" + last_error)
+    raise RuntimeError("CLI 도움말을 생성하지 못했습니다:\n" + "\n".join(errors))
 
 
 def normalize(help_text: str) -> str:
