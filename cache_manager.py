@@ -12,9 +12,14 @@ def load_cache(cache_path: Path) -> dict[str, Any]:
 
     try:
         content = cache_path.read_text(encoding="utf-8")
-        return json.loads(content)
+        data = json.loads(content)
     except Exception:
         return {}
+
+    if not isinstance(data, dict):
+        return {}
+
+    return data
 
 
 def save_cache(cache_path: Path, data: dict[str, Any]) -> None:

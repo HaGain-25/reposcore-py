@@ -1,6 +1,15 @@
 from pathlib import Path
 
+import pytest
+
 from cache_manager import load_cache, save_cache
+
+
+@pytest.mark.parametrize("raw", ["0", "null", "[]", '"invalid cache"', "1.5", "true"])
+def test_load_cache_non_dict_returns_empty(tmp_path: Path, raw: str) -> None:
+    cache_path = tmp_path / "cache.json"
+    cache_path.write_text(raw, encoding="utf-8")
+    assert load_cache(cache_path) == {}
 
 
 def test_load_cache_missing_file(tmp_path: Path) -> None:

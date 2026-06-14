@@ -10,6 +10,7 @@ from typing import Annotated
 
 import typer
 from gql.transport.exceptions import TransportQueryError, TransportServerError
+from pydantic import ValidationError
 
 from cache_manager import load_cache, save_cache
 from calc_score import (
@@ -68,16 +69,21 @@ def split_repository(repository: str) -> tuple[str, str]:
 
     return parts[0], parts[1]
 
+
 def _format_cache_date(value: date | None) -> str | None:
     return value.isoformat() if value is not None else None
 
 
-def _is_cache_valid(
-    cached_data: dict,
-    since: date | None,
-    until: date | None,
-) -> bool:
+def _is_cache_valid(cached_data, since, until):
+    if not isinstance(cached_data, dict):
+        return False
     if "contributions" not in cached_data:
+        return False
+
+    contributions = cached_data["contributions"]
+    if not isinstance(contributions, list):
+        return False
+    if not all(isinstance(item, dict) for item in contributions):
         return False
 
     metadata = cached_data.get("metadata")
@@ -98,9 +104,7 @@ def _is_cache_valid(
         return False
 
     try:
-        generated_datetime = datetime.fromisoformat(
-            generated_at.replace("Z", "+00:00")
-        )
+        generated_datetime = datetime.fromisoformat(generated_at.replace("Z", "+00:00"))
     except ValueError:
         return False
 
@@ -110,6 +114,7 @@ def _is_cache_valid(
         return False
 
     return True
+
 
 def _dump_contributions(
     contributions: list[UserContributionCounts],
@@ -165,11 +170,17 @@ def _load_or_fetch_contributions(
         cache_paths.append(cache_path)
         cached_data = load_cache(cache_path) if cache_path else {}
 
+        parsed = None
         if _is_cache_valid(cached_data, since, until):
-            all_contributions[index] = [
-                UserContributionCounts(**contribution)
-                for contribution in cached_data["contributions"]
-            ]
+            try:
+                parsed = [
+                    UserContributionCounts(**c) for c in cached_data["contributions"]
+                ]
+            except ValidationError:
+                parsed = None
+
+        if parsed is not None:
+            all_contributions[index] = parsed
         else:
             missing_indexes.append(index)
             missing_repos.append(repo)
