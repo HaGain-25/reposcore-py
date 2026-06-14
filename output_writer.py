@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import csv
-from html import escape
+import json
 from io import StringIO
 from pathlib import Path
 from typing import Any, Literal
@@ -77,48 +77,92 @@ def build_csv_output(results: list[dict[str, Any]]) -> str:
 
 
 def build_html_output(results: list[dict[str, Any]]) -> str:
-    # 1. 데이터셋에 totalScore가 존재하는지 확인
     has_score = any("totalScore" in result for result in results)
 
-    # 2. 점수가 있을 때만 HTML th 태그를 동적으로 생성
-    th_score = "\n        <th>total_score</th>" if has_score else ""
+    labels = []
+    issues_data = []
+    prs_data = []
 
-    html_rows = []
     for result in results:
-        row = (
-            "      <tr>"
-            f"<td>{escape(get_repository_name(result))}</td>"
-            f"<td>{get_issue_count(result)}</td>"
-            f"<td>{get_pull_request_count(result)}</td>"
-        )
-        # 점수가 있을 때만 안전하게 td 태그를 더해줍니다.
+        name = get_repository_name(result)
         if has_score:
-            row += f"<td>{result.get('totalScore', 0)}</td>"
+            score = result.get("totalScore", 0)
+            labels.append(f"{name} (점수: {score})")
+        else:
+            labels.append(name)
 
-        row += "</tr>"
-        html_rows.append(row)
+        issues_data.append(get_issue_count(result))
+        prs_data.append(get_pull_request_count(result))
 
-    rows = "\n".join(html_rows)
+    chart_height = max(400, len(results) * 40)
+
+    labels_json = json.dumps(labels).replace("<", "\\u003c").replace(">", "\\u003e")
+    issues_json = json.dumps(issues_data)
+    prs_json = json.dumps(prs_data)
 
     return f"""<!doctype html>
 <html lang="ko">
 <head>
   <meta charset="utf-8">
   <title>reposcore-py result</title>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-datalabels"></script>
+  <style>
+    .chart-container {{
+      position: relative;
+      height: {chart_height}px;
+      width: 100%;
+    }}
+  </style>
 </head>
 <body>
-  <table>
-    <thead>
-      <tr>
-        <th>repo</th>
-        <th>issues</th>
-        <th>pull_requests</th>{th_score}
-      </tr>
-    </thead>
-    <tbody>
-{rows}
-    </tbody>
-  </table>
+  <div class="chart-container">
+    <canvas id="myChart"></canvas>
+  </div>
+  <script>
+    Chart.register(ChartDataLabels);
+    const ctx = document.getElementById('myChart').getContext('2d');
+    new Chart(ctx, {{
+      type: 'bar',
+      data: {{
+        labels: {labels_json},
+        datasets: [
+          {{
+            label: 'Issues',
+            data: {issues_json},
+            backgroundColor: 'rgba(255, 99, 132, 0.5)',
+            borderColor: 'rgba(255, 99, 132, 1)',
+            borderWidth: 1
+          }},
+          {{
+            label: 'Pull Requests',
+            data: {prs_json},
+            backgroundColor: 'rgba(54, 162, 235, 0.5)',
+            borderColor: 'rgba(54, 162, 235, 1)',
+            borderWidth: 1
+          }}
+        ]
+      }},
+      options: {{
+        responsive: true,
+        maintainAspectRatio: false,
+        indexAxis: 'y',
+        plugins: {{
+          datalabels: {{
+            color: '#000',
+            anchor: 'end',
+            align: 'right',
+            offset: 4
+          }}
+        }},
+        scales: {{
+          x: {{
+            beginAtZero: true
+          }}
+        }}
+      }}
+    }});
+  </script>
 </body>
 </html>"""
 

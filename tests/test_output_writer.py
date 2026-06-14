@@ -60,17 +60,16 @@ def test_txt_has_headers_and_values():
 
 
 # ── build_html_output ──────────────────────────────────────
-def test_html_has_table_and_name():
+def test_html_has_canvas_and_name():
     out = build_html_output(SAMPLE)
-    assert "<table>" in out
+    assert '<canvas id="myChart"></canvas>' in out
     assert "owner/repo1" in out
 
 
 def test_html_escapes_special_characters():
     out = build_html_output([make_result("a<b>&x", 1, 2)])
-    assert "&lt;" in out
-    assert "&gt;" in out
-    assert "&amp;" in out
+    assert "\\u003c" in out
+    assert "\\u003e" in out
     assert "<b>" not in out  # 원본 특수문자가 그대로 남으면 안 됨
 
 
