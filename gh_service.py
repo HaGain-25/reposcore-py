@@ -8,6 +8,8 @@ from pydantic import BaseModel
 
 from calc_score import UserContributionCounts
 
+DEFAULT_PAGE_SIZE = 100
+
 
 # ── Pydantic 모델 정의 ──────────────────────────────────────────
 class Author(BaseModel):
@@ -153,7 +155,7 @@ def _add_pr_contribution(
 
 
 def _build_issue_alias_query(indexes: list[int]):
-    variable_definitions: list[str] = []
+    variable_definitions: list[str] = ["$pageSize: Int!"]
     repository_blocks: list[str] = []
 
     for index in indexes:
@@ -167,7 +169,7 @@ def _build_issue_alias_query(indexes: list[int]):
         repository_blocks.append(
             f"""
             repo{index}: repository(owner: $owner{index}, name: $name{index}) {{
-                issues(first: 100, after: $after{index}, states: [OPEN, CLOSED]) {{
+                issues(first: $pageSize, after: $after{index}, states: [OPEN, CLOSED]) {{
                     pageInfo {{
                         hasNextPage
                         endCursor
@@ -194,7 +196,7 @@ def _build_issue_alias_query(indexes: list[int]):
 
 
 def _build_pr_alias_query(indexes: list[int]):
-    variable_definitions: list[str] = []
+    variable_definitions: list[str] = ["$pageSize: Int!"]
     repository_blocks: list[str] = []
 
     for index in indexes:
@@ -208,7 +210,7 @@ def _build_pr_alias_query(indexes: list[int]):
         repository_blocks.append(
             f"""
             repo{index}: repository(owner: $owner{index}, name: $name{index}) {{
-                pullRequests(first: 100, after: $after{index}, states: [MERGED]) {{
+                pullRequests(first: $pageSize, after: $after{index}, states: [MERGED]) {{
                     pageInfo {{
                         hasNextPage
                         endCursor
@@ -240,6 +242,7 @@ def fetch_contributions(
     token: str,
     since: date | None = None,
     until: date | None = None,
+    page_size: int = DEFAULT_PAGE_SIZE,
 ) -> list[UserContributionCounts]:
     owner, name = _split_repository(repository)
     client = create_client(token)
@@ -247,9 +250,9 @@ def fetch_contributions(
 
     # 이슈 수집
     issue_query = gql("""
-    query($owner: String!, $name: String!, $after: String) {
+    query($owner: String!, $name: String!, $after: String, $pageSize: Int!) {
         repository(owner: $owner, name: $name) {
-            issues(first: 100, after: $after, states: [OPEN, CLOSED]) {
+            issues(first: $pageSize, after: $after, states: [OPEN, CLOSED]) {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -275,6 +278,7 @@ def fetch_contributions(
                     "owner": owner,
                     "name": name,
                     "after": cursor,
+                    "pageSize": page_size,
                 },
             )
 
@@ -289,9 +293,9 @@ def fetch_contributions(
 
     # PR 수집
     pr_query = gql("""
-    query($owner: String!, $name: String!, $after: String) {
+    query($owner: String!, $name: String!, $after: String, $pageSize: Int!) {
         repository(owner: $owner, name: $name) {
-            pullRequests(first: 100, after: $after, states: [MERGED]) {
+            pullRequests(first: $pageSize, after: $after, states: [MERGED]) {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -317,6 +321,7 @@ def fetch_contributions(
                     "owner": owner,
                     "name": name,
                     "after": cursor,
+                    "pageSize": page_size,
                 },
             )
 
@@ -337,6 +342,7 @@ def fetch_multiple_contributions(
     token: str,
     since: date | None = None,
     until: date | None = None,
+    page_size: int = DEFAULT_PAGE_SIZE,
 ) -> list[list[UserContributionCounts]]:
     """여러 저장소의 기여 데이터를 GraphQL repository alias를 사용해 조회합니다."""
 
@@ -362,7 +368,7 @@ def fetch_multiple_contributions(
                 index for index, active in enumerate(issue_active) if active
             ]
 
-            variables = {}
+            variables = {"pageSize": page_size}
             for index in active_indexes:
                 owner, name = repository_parts[index]
                 variables[f"owner{index}"] = owner
@@ -393,7 +399,7 @@ def fetch_multiple_contributions(
         while any(pr_active):
             active_indexes = [index for index, active in enumerate(pr_active) if active]
 
-            variables = {}
+            variables = {"pageSize": page_size}
             for index in active_indexes:
                 owner, name = repository_parts[index]
                 variables[f"owner{index}"] = owner
