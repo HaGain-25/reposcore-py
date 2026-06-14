@@ -177,7 +177,10 @@ def main(
     format: Annotated[
         OutputFormatOption,
         typer.Option(
-            "--format", "-f", help="출력 파일 형식을 지정합니다. (csv | txt | html)"
+            "--format",
+            "-f",
+            help="출력 파일 형식을 지정합니다. (csv | txt | html)",
+            case_sensitive=False,
         ),
     ] = OutputFormatOption.txt,
     output: Annotated[
