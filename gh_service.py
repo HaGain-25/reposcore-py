@@ -459,10 +459,20 @@ def fetch_open_issue_claims(repository: str, token: str) -> list[dict[str, Any]]
     owner, name = _split_repository(repository)
     client = create_client(token)
 
+    # GraphQL query에 after cursor 및 pageInfo 연동 보강
     query = gql("""
-    query($owner: String!, $name: String!) {
+    query($owner: String!, $name: String!, $after: String) {
         repository(owner: $owner, name: $name) {
-            issues(states: OPEN, first: 100, orderBy: {field: CREATED_AT, direction: DESC}) {
+            issues(
+                states: OPEN,
+                first: 100,
+                after: $after,
+                orderBy: {field: CREATED_AT, direction: DESC}
+            ) {
+                pageInfo {
+                    hasNextPage
+                    endCursor
+                }
                 nodes {
                     number
                     title
@@ -490,13 +500,27 @@ def fetch_open_issue_claims(repository: str, token: str) -> list[dict[str, Any]]
     }
     """)
 
-    with client as session:
-        result = session.execute(
-            query,
-            variable_values={
-                "owner": owner,
-                "name": name,
-            },
-        )
+    all_issues = []
+    cursor = None
+    has_next_page = True
 
-    return result.get("repository", {}).get("issues", {}).get("nodes", [])
+    # pageInfo.hasNextPage와 endCursor를 활용한 전체 열린 이슈 페이지네이션 반복 루프
+    with client as session:
+        while has_next_page:
+            result = session.execute(
+                query,
+                variable_values={
+                    "owner": owner,
+                    "name": name,
+                    "after": cursor,
+                },
+            )
+
+            issues_data = result.get("repository", {}).get("issues", {})
+            all_issues.extend(issues_data.get("nodes", []))
+
+            page_info = issues_data.get("pageInfo", {})
+            has_next_page = page_info.get("hasNextPage", False)
+            cursor = page_info.get("endCursor")
+
+    return all_issues
