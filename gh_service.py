@@ -485,7 +485,7 @@ def fetch_open_issue_claims(repository: str, token: str) -> list[dict[str, Any]]
                             name
                         }
                     }
-                    comments(last: 1) {
+                    comments(last: 10) {
                         nodes {
                             author {
                                 login
