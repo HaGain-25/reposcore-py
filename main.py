@@ -42,6 +42,7 @@ DEFAULT_CLAIM_KEYWORDS = [
 ]
 
 app = typer.Typer(help="reposcore-py CLI")
+CACHE_TTL_SECONDS = 60 * 60
 
 
 def version_callback(value: bool) -> None:
@@ -80,6 +81,63 @@ def _dump_contributions(
     ]
 
 
+def _parse_generated_at(value: object) -> datetime | None:
+    if not isinstance(value, str):
+        return None
+
+    try:
+        generated_at = datetime.fromisoformat(value.replace("Z", "+00:00"))
+    except ValueError:
+        return None
+
+    if generated_at.tzinfo is None:
+        generated_at = generated_at.replace(tzinfo=timezone.utc)
+
+    return generated_at.astimezone(timezone.utc)
+
+
+def _is_cache_fresh(metadata: dict[str, object]) -> bool:
+    generated_at = _parse_generated_at(metadata.get("generatedAt"))
+    if generated_at is None:
+        return False
+
+    age_seconds = (datetime.now(timezone.utc) - generated_at).total_seconds()
+    return age_seconds <= CACHE_TTL_SECONDS
+
+
+def _is_cache_valid(
+    cached_data: object,
+    since: date | None = None,
+    until: date | None = None,
+) -> bool:
+    if not isinstance(cached_data, dict):
+        return False
+
+    metadata = cached_data.get("metadata")
+    if not isinstance(metadata, dict):
+        return False
+
+    if metadata.get("schemaVersion") != 1:
+        return False
+
+    if not _is_cache_fresh(metadata):
+        return False
+
+    contributions = cached_data.get("contributions")
+    if not isinstance(contributions, list):
+        return False
+
+    for contribution in contributions:
+        if not isinstance(contribution, dict):
+            return False
+        try:
+            UserContributionCounts(**contribution)
+        except Exception:
+            return False
+
+    return True
+
+
 def _load_or_fetch_contributions(
     repos: list[str],
     token: str,
@@ -103,7 +161,7 @@ def _load_or_fetch_contributions(
         cache_paths.append(cache_path)
         cached_data = load_cache(cache_path) if cache_path else {}
 
-        if "contributions" in cached_data:
+        if _is_cache_valid(cached_data, since, until):
             all_contributions[index] = [
                 UserContributionCounts(**contribution)
                 for contribution in cached_data["contributions"]
