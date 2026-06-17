@@ -440,6 +440,7 @@ def main(
                             {
                                 "number": issue["number"],
                                 "title": issue["title"],
+                                "url": issue.get("url"),
                                 "author": issue_author,
                                 "labels": labels,
                                 "claimant": claimant,
@@ -451,6 +452,7 @@ def main(
                             {
                                 "number": issue["number"],
                                 "title": issue["title"],
+                                "url": issue.get("url"),
                                 "author": issue_author,
                                 "labels": labels,
                             }
@@ -474,6 +476,8 @@ def main(
                 for ci in claimed_issues:
                     labels_str = ", ".join(ci["labels"]) if ci["labels"] else "없음"
                     print(f"- #{ci['number']} {ci['title']}")
+                    if ci.get("url"):
+                        print(f"  URL: {ci['url']}")
                     print(f"  Author: {ci['author']}")
                     print(f"  Labels: {labels_str}")
                     print(f"  Claimed by: {ci['claimant']}")
@@ -485,6 +489,8 @@ def main(
                 for ui in unclaimed_issues:
                     labels_str = ", ".join(ui["labels"]) if ui["labels"] else "없음"
                     print(f"- #{ui['number']} {ui['title']}")
+                    if ui.get("url"):
+                        print(f"  URL: {ui['url']}")
                     print(f"  Author: {ui['author']}")
                     print(f"  Labels: {labels_str}")
                 if not unclaimed_issues:

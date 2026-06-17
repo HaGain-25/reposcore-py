@@ -253,3 +253,70 @@ def test_mixed_claimed_and_unclaimed_with_author_labels(monkeypatch):
     # unclaimed issue
     assert "Author: author-b" in result.output
     assert "Labels: documentation" in result.output
+
+
+# ── issue URL 출력 검증 ──────────────────────────────────────
+
+
+def test_claimed_issue_output_includes_url(monkeypatch):
+    result = _invoke_claims(
+        monkeypatch,
+        [
+            {
+                "number": 12,
+                "title": "출력 형식 개선",
+                "url": "https://github.com/oss2026hnu/reposcore-py/issues/12",
+                "author": {"login": "issue-author"},
+                "labels": {"nodes": [{"name": "enhancement"}]},
+                "comments": {
+                    "nodes": [
+                        {
+                            "body": "제가 하겠습니다",
+                            "author": {"login": "user1"},
+                        }
+                    ]
+                },
+            }
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "URL: https://github.com/oss2026hnu/reposcore-py/issues/12" in result.output
+
+
+def test_unclaimed_issue_output_includes_url(monkeypatch):
+    result = _invoke_claims(
+        monkeypatch,
+        [
+            {
+                "number": 13,
+                "title": "README 예시 추가",
+                "url": "https://github.com/oss2026hnu/reposcore-py/issues/13",
+                "author": {"login": "another-author"},
+                "labels": {"nodes": [{"name": "documentation"}]},
+                "comments": {"nodes": []},
+            }
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "URL: https://github.com/oss2026hnu/reposcore-py/issues/13" in result.output
+
+
+def test_issue_without_url_does_not_crash(monkeypatch):
+    result = _invoke_claims(
+        monkeypatch,
+        [
+            {
+                "number": 14,
+                "title": "URL 없는 이슈",
+                "author": {"login": "some-author"},
+                "labels": {"nodes": []},
+                "comments": {"nodes": []},
+            }
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "URL 없는 이슈" in result.output
+    assert "URL:" not in result.output
