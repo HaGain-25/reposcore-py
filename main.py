@@ -361,17 +361,20 @@ def main(
 
                     comments_nodes = issue.get("comments", {}).get("nodes", [])
                     if comments_nodes:
-                        latest_comment = comments_nodes[0]
-                        body = latest_comment.get("body", "")
+                        for comment in reversed(comments_nodes):
+                            body = comment.get("body", "")
 
-                        for kw in claim_keywords:
-                            if kw in body:
-                                matched_kw = kw
-                                claimant = (
-                                    latest_comment.get("author", {}).get("login")
-                                    if latest_comment.get("author")
-                                    else "알 수 없음"
-                                )
+                            for kw in claim_keywords:
+                                if kw in body:
+                                    matched_kw = kw
+                                    claimant = (
+                                        comment.get("author", {}).get("login")
+                                        if comment.get("author")
+                                        else "알 수 없음"
+                                    )
+                                    break
+
+                            if matched_kw:
                                 break
 
                     if matched_kw:
