@@ -3,7 +3,6 @@ from __future__ import annotations
 import os
 import sys
 from datetime import date, datetime, timezone
-from enum import Enum
 from importlib.metadata import PackageNotFoundError, version
 from pathlib import Path
 from typing import Annotated
@@ -56,10 +55,28 @@ def version_callback(value: bool) -> None:
         raise typer.Exit()
 
 
-class OutputFormatOption(str, Enum):
-    csv = "csv"
-    txt = "txt"
-    html = "html"
+AVAILABLE_FORMATS = ("csv", "txt", "html")
+
+
+def parse_output_formats(raw: str) -> list[str]:
+    """--format 입력을 검증해 출력 형식 목록으로 변환합니다."""
+    tokens = [token.strip().lower() for token in raw.split(",")]
+
+    if any(token == "" for token in tokens):
+        raise ValueError("형식이 비어 있습니다. 사용 가능한 형식: csv, txt, html")
+
+    invalid = [token for token in tokens if token not in AVAILABLE_FORMATS]
+    if invalid:
+        raise ValueError(
+            f"유효하지 않은 형식: {', '.join(invalid)}. "
+            "사용 가능한 형식: csv, txt, html"
+        )
+
+    deduped: list[str] = []
+    for token in tokens:
+        if token not in deduped:
+            deduped.append(token)
+    return deduped
 
 
 def split_repository(repository: str) -> tuple[str, str]:
@@ -83,6 +100,21 @@ def _validate_unique_repositories(repos: list[str]) -> None:
         if repo_lower in seen:
             raise ValueError(f"같은 저장소가 중복 입력되었습니다: {repo}")
         seen.add(repo_lower)
+        
+def _parse_claim_keywords(keywords: str | None) -> list[str]:
+    if keywords is None:
+        return DEFAULT_CLAIM_KEYWORDS
+
+    parsed_keywords = [
+        keyword.strip()
+        for keyword in keywords.split(",")
+        if keyword.strip()
+    ]
+
+    if not parsed_keywords:
+        raise ValueError("선점 키워드는 하나 이상 입력해야 합니다.")
+
+    return parsed_keywords
 
 
 def _dump_contributions(
@@ -190,11 +222,17 @@ def main(
         ),
     ] = False,
     format: Annotated[
-        OutputFormatOption,
+        str | None,
         typer.Option(
-            "--format", "-f", help="출력 파일 형식을 지정합니다. (csv | txt | html)"
+            "--format",
+            "-f",
+            help=(
+                "출력 형식을 쉼표로 구분해 지정합니다. "
+                "사용 가능: csv, txt, html (예: csv,html). "
+                "생략하면 모든 형식을 출력합니다."
+            ),
         ),
-    ] = OutputFormatOption.txt,
+    ] = None,
     output: Annotated[
         str | None,
         typer.Option(
@@ -290,11 +328,11 @@ def main(
 
     # --claims 모드: 점수 계산 없이 선점 현황만 출력 후 종료
     if claims:
-        claim_keywords = (
-            [kw.strip() for kw in keywords.split(",")]
-            if keywords
-            else DEFAULT_CLAIM_KEYWORDS
-        )
+        try:
+            claim_keywords = _parse_claim_keywords(keywords)
+        except ValueError as error:
+            print(f"오류: {error}", file=sys.stderr)
+            raise typer.Exit(1) from error
 
         for repo in repos:
             try:
@@ -430,6 +468,15 @@ def main(
         print("오류: --since 날짜가 --until 날짜보다 늦습니다.", file=sys.stderr)
         raise typer.Exit(1)
 
+    if format is None:
+        selected_formats = list(AVAILABLE_FORMATS)
+    else:
+        try:
+            selected_formats = parse_output_formats(format)
+        except ValueError as error:
+            print(f"오류: {error}", file=sys.stderr)
+            raise typer.Exit(1) from error
+
     try:
         all_contributions = _load_or_fetch_contributions(
             repos,
@@ -491,8 +538,6 @@ def main(
         print(f"오류: {error}", file=sys.stderr)
         raise typer.Exit(1) from error
 
-    format_value = format.value
-
     try:
         if aggregate:
             scores = calculate_total_scores(all_contributions)
@@ -504,8 +549,9 @@ def main(
             ]
             scores = calculate_repository_scores(flat_contributions)
 
-        content = build_output(scores, format_value)
-        write_output(content, output, format_value)
+        for output_format in selected_formats:
+            content = build_output(scores, output_format)
+            write_output(content, output, output_format)
 
     except Exception as error:
         print(f"출력 오류: {error}", file=sys.stderr)
