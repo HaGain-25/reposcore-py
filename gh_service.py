@@ -4,12 +4,21 @@ from datetime import date
 from typing import Any
 
 from gql import Client, gql
+from gql.transport.exceptions import TransportQueryError
 from gql.transport.requests import RequestsHTTPTransport
 from pydantic import BaseModel
 
 from calc_score import UserContributionCounts
 
 DEFAULT_PAGE_SIZE = 100
+
+
+class RepositoryAccessError(Exception):
+    """저장소 접근 실패 시 발생하는 커스텀 예외입니다."""
+
+    def __init__(self, failed_repositories: list[str], message: str = ""):
+        self.failed_repositories = failed_repositories
+        super().__init__(message)
 
 
 # ── Pydantic 모델 정의 ──────────────────────────────────────────
@@ -61,7 +70,10 @@ class PRResponse(BaseModel):
 
 # ── 클라이언트 생성 ──────────────────────────────────────────────
 def create_client(token: str) -> Client:
-    """주어진 GitHub 토큰을 사용하여 GraphQL API 요청을 위한 클라이언트 인스턴스를 생성합니다."""
+    """주어진 GitHub 토큰을 사용하여 GraphQL API 요청을 위한
+
+    클라이언트 인스턴스를 생성합니다.
+    """
     transport = RequestsHTTPTransport(
         url="https://api.github.com/graphql",
         headers={"Authorization": f"Bearer {token}"},
@@ -96,11 +108,17 @@ def _is_in_date_range(
 
 # ── 공통 기여 집계 유틸리티 ─────────────────────────────────────
 def _split_repository(repository: str) -> tuple[str, str]:
-    """'owner/repo' 형식의 저장소 문자열을 소유자와 저장소 이름으로 분리하여 반환합니다."""
+    """'owner/repo' 형식의 저장소 문자열을 소유자와 저장소 이름으로
+
+    분리하여 반환합니다.
+    """
     parts = repository.split("/")
 
     if len(parts) != 2 or not parts[0] or not parts[1]:
-        raise ValueError("저장소는 owner/repo 형식이어야 합니다.")
+        raise ValueError(
+            f"저장소 형식이 올바르지 않습니다: '{repository}' "
+            "— owner/repo 형식으로 입력하세요."
+        )
 
     return parts[0], parts[1]
 
@@ -109,7 +127,10 @@ def _get_contribution(
     contributions: dict[str, UserContributionCounts],
     user: str,
 ) -> UserContributionCounts:
-    """사용자의 기여 데이터 객체를 반환하거나, 없다면 새로 생성하여 사전에 추가한 뒤 반환합니다."""
+    """사용자의 기여 데이터 객체를 반환하거나, 없다면 새로 생성하여
+
+    사전에 추가한 뒤 반환합니다.
+    """
     if user not in contributions:
         contributions[user] = UserContributionCounts(user=user)
 
@@ -122,7 +143,10 @@ def _add_issue_contribution(
     since: date | None = None,
     until: date | None = None,
 ) -> None:
-    """이슈 노드 정보를 바탕으로 라벨 및 닫힘 사유, 날짜 범위를 확인하여 사용자의 이슈 기여 개수를 추가합니다."""
+    """이슈 노드 정보를 바탕으로 라벨 및 닫힘 사유, 날짜 범위를
+
+    확인하여 사용자의 이슈 기여 개수를 추가합니다.
+    """
     if node.author is None:
         return
 
@@ -149,7 +173,10 @@ def _add_pr_contribution(
     since: date | None = None,
     until: date | None = None,
 ) -> None:
-    """PR 노드 정보를 바탕으로 라벨 및 병합 날짜 범위를 확인하여 사용자의 PR 기여 개수를 추가합니다."""
+    """PR 노드 정보를 바탕으로 라벨 및 병합 날짜 범위를 확인하여
+
+    사용자의 PR 기여 개수를 추가합니다.
+    """
     if node.author is None:
         return
 
@@ -170,7 +197,10 @@ def _add_pr_contribution(
 
 
 def _build_issue_alias_query(indexes: list[int]):
-    """여러 저장소의 이슈를 한 번에 조회하기 위해 GraphQL repository alias를 적용한 쿼리를 생성합니다."""
+    """여러 저장소의 이슈를 한 번에 조회하기 위해 GraphQL repository
+
+    alias를 적용한 쿼리를 생성합니다.
+    """
     variable_definitions: list[str] = ["$pageSize: Int!"]
     repository_blocks: list[str] = []
 
@@ -184,7 +214,10 @@ def _build_issue_alias_query(indexes: list[int]):
         )
         repository_blocks.append(
             f"""
-            repo{index}: repository(owner: $owner{index}, name: $name{index}) {{
+            repo{index}: repository(
+                owner: $owner{index},
+                name: $name{index}
+            ) {{
                 issues(
                     first: $pageSize,
                     after: $after{index},
@@ -217,7 +250,10 @@ def _build_issue_alias_query(indexes: list[int]):
 
 
 def _build_pr_alias_query(indexes: list[int]):
-    """여러 저장소의 병합된 PR을 한 번에 조회하기 위해 GraphQL repository alias를 적용한 쿼리를 생성합니다."""
+    """여러 저장소의 병합된 PR을 한 번에 조회하기 위해 GraphQL
+
+    repository alias를 적용한 쿼리를 생성합니다.
+    """
     variable_definitions: list[str] = ["$pageSize: Int!"]
     repository_blocks: list[str] = []
 
@@ -231,7 +267,10 @@ def _build_pr_alias_query(indexes: list[int]):
         )
         repository_blocks.append(
             f"""
-            repo{index}: repository(owner: $owner{index}, name: $name{index}) {{
+            repo{index}: repository(
+                owner: $owner{index},
+                name: $name{index}
+            ) {{
                 pullRequests(
                     first: $pageSize,
                     after: $after{index},
@@ -270,7 +309,10 @@ def fetch_contributions(
     until: date | None = None,
     page_size: int = DEFAULT_PAGE_SIZE,
 ) -> list[UserContributionCounts]:
-    """단일 저장소에서 GraphQL API를 사용해 기여자별 활동 데이터를 수집하고 분류하여 반환합니다."""
+    """단일 저장소에서 GraphQL API를 사용해 기여자별 활동 데이터를
+
+    수집하고 분류하여 반환합니다.
+    """
     owner, name = _split_repository(repository)
     client = create_client(token)
     contributions: dict[str, UserContributionCounts] = {}
@@ -286,7 +328,11 @@ def fetch_contributions(
         $prCursor: String
     ) {
         repository(owner: $owner, name: $name) {
-            issues(first: $pageSize, after: $issueCursor, states: [OPEN, CLOSED]) @include(if: $fetchIssues) {
+            issues(
+                first: $pageSize,
+                after: $issueCursor,
+                states: [OPEN, CLOSED]
+            ) @include(if: $fetchIssues) {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -300,7 +346,11 @@ def fetch_contributions(
                     }
                 }
             }
-            pullRequests(first: $pageSize, after: $prCursor, states: [MERGED]) @include(if: $fetchPRs) {
+            pullRequests(
+                first: $pageSize,
+                after: $prCursor,
+                states: [MERGED]
+            ) @include(if: $fetchPRs) {
                 pageInfo {
                     hasNextPage
                     endCursor
@@ -322,38 +372,43 @@ def fetch_contributions(
     has_next_issue = True
     has_next_pr = True
 
-    with client as session:
-        while has_next_issue or has_next_pr:
-            result = session.execute(
-                combined_query,
-                variable_values={
-                    "owner": owner,
-                    "name": name,
-                    "pageSize": page_size,
-                    "fetchIssues": has_next_issue,
-                    "issueCursor": issue_cursor,
-                    "fetchPRs": has_next_pr,
-                    "prCursor": pr_cursor,
-                },
-            )
+    try:
+        with client as session:
+            while has_next_issue or has_next_pr:
+                result = session.execute(
+                    combined_query,
+                    variable_values={
+                        "owner": owner,
+                        "name": name,
+                        "pageSize": page_size,
+                        "fetchIssues": has_next_issue,
+                        "issueCursor": issue_cursor,
+                        "fetchPRs": has_next_pr,
+                        "prCursor": pr_cursor,
+                    },
+                )
 
-            repo_data = result.get("repository", {})
+                repo_data = result.get("repository", {})
 
-            if has_next_issue and "issues" in repo_data:
-                issues = Connection.model_validate(repo_data["issues"])
-                for node in issues.nodes:
-                    _add_issue_contribution(contributions, node, since, until)
+                if has_next_issue and "issues" in repo_data:
+                    issues = Connection.model_validate(repo_data["issues"])
+                    for node in issues.nodes:
+                        _add_issue_contribution(contributions, node, since, until)
 
-                has_next_issue = issues.pageInfo.hasNextPage
-                issue_cursor = issues.pageInfo.endCursor
+                    has_next_issue = issues.pageInfo.hasNextPage
+                    issue_cursor = issues.pageInfo.endCursor
 
-            if has_next_pr and "pullRequests" in repo_data:
-                prs = Connection.model_validate(repo_data["pullRequests"])
-                for node in prs.nodes:
-                    _add_pr_contribution(contributions, node, since, until)
+                if has_next_pr and "pullRequests" in repo_data:
+                    prs = Connection.model_validate(repo_data["pullRequests"])
+                    for node in prs.nodes:
+                        _add_pr_contribution(contributions, node, since, until)
 
-                has_next_pr = prs.pageInfo.hasNextPage
-                pr_cursor = prs.pageInfo.endCursor
+                    has_next_pr = prs.pageInfo.hasNextPage
+                    pr_cursor = prs.pageInfo.endCursor
+    except TransportQueryError as error:
+        raise RepositoryAccessError(
+            failed_repositories=[repository], message=str(error)
+        ) from error
 
     return list(contributions.values())
 
@@ -383,70 +438,100 @@ def fetch_multiple_contributions(
     pr_cursors: list[str | None] = [None for _ in repositories]
     pr_active = [True for _ in repositories]
 
-    with client as session:
-        while any(issue_active):
-            active_indexes = [
-                index for index, active in enumerate(issue_active) if active
-            ]
+    try:
+        with client as session:
+            while any(issue_active):
+                active_indexes = [
+                    index for index, active in enumerate(issue_active) if active
+                ]
 
-            variables: dict[str, str | int | None] = {"pageSize": page_size}
-            for index in active_indexes:
-                owner, name = repository_parts[index]
-                variables[f"owner{index}"] = owner
-                variables[f"name{index}"] = name
-                variables[f"after{index}"] = issue_cursors[index]
+                variables: dict[str, str | int | None] = {"pageSize": page_size}
+                for index in active_indexes:
+                    owner, name = repository_parts[index]
+                    variables[f"owner{index}"] = owner
+                    variables[f"name{index}"] = name
+                    variables[f"after{index}"] = issue_cursors[index]
 
-            result = session.execute(
-                _build_issue_alias_query(active_indexes),
-                variable_values=variables,
-            )
+                result = session.execute(
+                    _build_issue_alias_query(active_indexes),
+                    variable_values=variables,
+                )
 
-            for index in active_indexes:
-                issues = Connection.model_validate(result[f"repo{index}"]["issues"])
+                for index in active_indexes:
+                    issues = Connection.model_validate(result[f"repo{index}"]["issues"])
 
-                for node in issues.nodes:
-                    _add_issue_contribution(
-                        contributions_by_repository[index],
-                        node,
-                        since,
-                        until,
+                    for node in issues.nodes:
+                        _add_issue_contribution(
+                            contributions_by_repository[index],
+                            node,
+                            since,
+                            until,
+                        )
+
+                    if issues.pageInfo.hasNextPage:
+                        issue_cursors[index] = issues.pageInfo.endCursor
+                    else:
+                        issue_active[index] = False
+
+            while any(pr_active):
+                active_indexes = [
+                    index for index, active in enumerate(pr_active) if active
+                ]
+
+                variables: dict[str, str | int | None] = {"pageSize": page_size}
+                for index in active_indexes:
+                    owner, name = repository_parts[index]
+                    variables[f"owner{index}"] = owner
+                    variables[f"name{index}"] = name
+                    variables[f"after{index}"] = pr_cursors[index]
+
+                result = session.execute(
+                    _build_pr_alias_query(active_indexes),
+                    variable_values=variables,
+                )
+
+                for index in active_indexes:
+                    prs = Connection.model_validate(
+                        result[f"repo{index}"]["pullRequests"]
                     )
 
-                if issues.pageInfo.hasNextPage:
-                    issue_cursors[index] = issues.pageInfo.endCursor
-                else:
-                    issue_active[index] = False
+                    for node in prs.nodes:
+                        _add_pr_contribution(
+                            contributions_by_repository[index],
+                            node,
+                            since,
+                            until,
+                        )
 
-        while any(pr_active):
-            active_indexes = [index for index, active in enumerate(pr_active) if active]
-
-            variables: dict[str, str | int | None] = {"pageSize": page_size}
-            for index in active_indexes:
-                owner, name = repository_parts[index]
-                variables[f"owner{index}"] = owner
-                variables[f"name{index}"] = name
-                variables[f"after{index}"] = pr_cursors[index]
-
-            result = session.execute(
-                _build_pr_alias_query(active_indexes),
-                variable_values=variables,
-            )
-
-            for index in active_indexes:
-                prs = Connection.model_validate(result[f"repo{index}"]["pullRequests"])
-
-                for node in prs.nodes:
-                    _add_pr_contribution(
-                        contributions_by_repository[index],
-                        node,
-                        since,
-                        until,
-                    )
-
-                if prs.pageInfo.hasNextPage:
-                    pr_cursors[index] = prs.pageInfo.endCursor
-                else:
-                    pr_active[index] = False
+                    if prs.pageInfo.hasNextPage:
+                        pr_cursors[index] = prs.pageInfo.endCursor
+                    else:
+                        pr_active[index] = False
+    except TransportQueryError as error:
+        failed_repos = set()
+        if error.errors:
+            for err in error.errors:
+                err_type = (
+                    err.get("type")
+                    or err.get("extensions", {}).get("type")
+                    or err.get("extensions", {}).get("code")
+                )
+                if err_type in ["NOT_FOUND", "FORBIDDEN"]:
+                    path = err.get("path", [])
+                    for p in path:
+                        if isinstance(p, str) and p.startswith("repo"):
+                            try:
+                                idx = int(p[4:])
+                                if 0 <= idx < len(repositories):
+                                    failed_repos.add(repositories[idx])
+                            except ValueError:
+                                pass
+        raise RepositoryAccessError(
+            failed_repositories=sorted(list(failed_repos))
+            if failed_repos
+            else repositories,
+            message=str(error),
+        ) from error
 
     return [
         list(contributions.values()) for contributions in contributions_by_repository
@@ -455,7 +540,10 @@ def fetch_multiple_contributions(
 
 # ── 이슈 선점 데이터 수집 ──────────────────────────────────────────
 def fetch_open_issue_claims(repository: str, token: str) -> list[dict[str, Any]]:
-    """GitHub GraphQL API를 조회하여 열린 이슈 정보 및 가장 최근 댓글 명세를 수집합니다."""
+    """GitHub GraphQL API를 조회하여 열린 이슈 정보 및 가장 최근
+
+    댓글 명세를 수집합니다.
+    """
     owner, name = _split_repository(repository)
     client = create_client(token)
 
