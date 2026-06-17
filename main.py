@@ -69,6 +69,22 @@ def split_repository(repository: str) -> tuple[str, str]:
     return parts[0], parts[1]
 
 
+def _parse_claim_keywords(keywords: str | None) -> list[str]:
+    if keywords is None:
+        return DEFAULT_CLAIM_KEYWORDS
+
+    parsed_keywords = [
+        keyword.strip()
+        for keyword in keywords.split(",")
+        if keyword.strip()
+    ]
+
+    if not parsed_keywords:
+        raise ValueError("선점 키워드는 하나 이상 입력해야 합니다.")
+
+    return parsed_keywords
+
+
 def _dump_contributions(
     contributions: list[UserContributionCounts],
 ) -> list[dict]:
@@ -267,11 +283,11 @@ def main(
 
     # --claims 모드: 점수 계산 없이 선점 현황만 출력 후 종료
     if claims:
-        claim_keywords = (
-            [kw.strip() for kw in keywords.split(",")]
-            if keywords
-            else DEFAULT_CLAIM_KEYWORDS
-        )
+        try:
+            claim_keywords = _parse_claim_keywords(keywords)
+        except ValueError as error:
+            print(f"오류: {error}", file=sys.stderr)
+            raise typer.Exit(1) from error
 
         for repo in repos:
             try:

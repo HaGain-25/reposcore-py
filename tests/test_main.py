@@ -92,7 +92,8 @@ def test_page_size_envvar_is_passed_to_loader(monkeypatch):
     assert captured["page_size"] == 30
 
 
-# [신규 단위 테스트 검증 스펙 완벽 추가] --cache / --no-cache 한 쌍이 제어 로직에 정상 바인딩되는지 검증합니다.
+# [신규 단위 테스트 검증 스펙 완벽 추가] 
+# --cache / --no-cache 한 쌍이 제어 로직에 정상 바인딩되는지 검증합니다.
 def test_cache_and_no_cache_toggle_options(monkeypatch):
     captured = {}
 
@@ -129,7 +130,7 @@ def test_cache_and_no_cache_toggle_options(monkeypatch):
     )
     assert result_no_cache.exit_code == 0
     assert captured["cache"] is False
-    
+
 
 def test_claims_output_includes_summary_counts(monkeypatch):
     def fake_fetch_open_issue_claims(repo, token):
@@ -292,3 +293,105 @@ def test_claims_summary_for_multiple_repositories(monkeypatch):
     assert "Total open issues: 1" in result.output
     assert "Claimed issues: 0" in result.output
     assert "Unclaimed issues: 1" in result.output
+
+
+def test_parse_claim_keywords_removes_empty_items():
+    result = main._parse_claim_keywords("제가 하겠습니다,")
+
+    assert result == ["제가 하겠습니다"]
+
+
+def test_parse_claim_keywords_raises_when_all_empty():
+    import pytest
+
+    with pytest.raises(ValueError, match="선점 키워드는 하나 이상 입력해야 합니다."):
+        main._parse_claim_keywords(",")
+
+
+def test_parse_claim_keywords_raises_when_only_spaces():
+    import pytest
+
+    with pytest.raises(ValueError, match="선점 키워드는 하나 이상 입력해야 합니다."):
+        main._parse_claim_keywords("   ")
+
+
+def test_parse_claim_keywords_returns_default_when_none():
+    result = main._parse_claim_keywords(None)
+
+    assert result == main.DEFAULT_CLAIM_KEYWORDS
+
+
+def test_claims_keywords_trailing_comma_removes_empty_keyword(monkeypatch):
+    def fake_fetch_open_issue_claims(repo, token):
+        return [
+            {
+                "number": 1,
+                "title": "선점 테스트",
+                "author": {"login": "issue-author"},
+                "labels": {"nodes": []},
+                "comments": {
+                    "nodes": [
+                        {
+                            "body": "제가 하겠습니다",
+                            "author": {"login": "claimer"},
+                        }
+                    ]
+                },
+            }
+        ]
+
+    monkeypatch.setattr(
+        main,
+        "fetch_open_issue_claims",
+        fake_fetch_open_issue_claims,
+    )
+
+    result = runner.invoke(
+        main.app,
+        [
+            "oss2026hnu/reposcore-py",
+            "--token",
+            "dummy-token",
+            "--claims",
+            "--keywords",
+            "제가 하겠습니다,",
+        ],
+    )
+
+    assert result.exit_code == 0
+    assert "Claimed issues: 1" in result.output
+    assert "Matched keyword: 제가 하겠습니다" in result.output
+
+
+def test_claims_keywords_comma_only_exits_with_error():
+    result = runner.invoke(
+        main.app,
+        [
+            "oss2026hnu/reposcore-py",
+            "--token",
+            "dummy-token",
+            "--claims",
+            "--keywords",
+            ",",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "오류: 선점 키워드는 하나 이상 입력해야 합니다." in result.output
+
+
+def test_claims_keywords_spaces_only_exits_with_error():
+    result = runner.invoke(
+        main.app,
+        [
+            "oss2026hnu/reposcore-py",
+            "--token",
+            "dummy-token",
+            "--claims",
+            "--keywords",
+            "   ",
+        ],
+    )
+
+    assert result.exit_code == 1
+    assert "오류: 선점 키워드는 하나 이상 입력해야 합니다." in result.output
