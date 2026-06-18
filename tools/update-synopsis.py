@@ -32,12 +32,16 @@ def capture_cli_help() -> str:
 
     errors: list[str] = []
     env = os.environ.copy()
-    env["COLUMNS"] = "100"
 
-    # CI 환경(GitHub Actions 등)에서 Rich의 강제 색상/서식 출력 방지
+    # Rich 기반 help 렌더링이 긴 셀을 …로 생략하지 않도록
+    # 터미널 폭 조정이 아니라 일반 Click/Typer help 출력으로 유도한다.
     env["NO_COLOR"] = "1"
+    env["TERM"] = "dumb"
+    env["FORCE_COLOR"] = "0"
+
     env.pop("GITHUB_ACTIONS", None)
     env.pop("CI", None)
+    env.pop("COLUMNS", None)
 
     for command in candidates:
         try:

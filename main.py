@@ -42,7 +42,10 @@ DEFAULT_CLAIM_KEYWORDS = [
     "assign to me",
 ]
 
-app = typer.Typer(help="reposcore-py CLI")
+app = typer.Typer(
+    help="reposcore-py CLI",
+    rich_markup_mode=None,
+)
 CACHE_TTL_SECONDS = 60 * 60
 
 
